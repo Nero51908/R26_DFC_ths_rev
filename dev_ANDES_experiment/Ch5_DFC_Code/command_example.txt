@@ -1,0 +1,30 @@
+# examples of using application.py in command line interface
+## train (--train) a model with a specified BESS capacity (--bcap) and dataset (--datat); then evaluate (--evaluate) with dataset (--datae) and save the simulation run for evaluating the model as a csv file; then visualize (--visualize) the csv file as an html file and open (--show) the html file; keep timestamps (--datetime) for x-axis.
+python application.py --bcap 0.1 --train --datat RUGBYR1_odd --evaluate --datae RUGBYR1_even --visualize --datetime --show
+python application.py --bcap 0.1 --train --datat RUGBYR1_odd --evaluate --datae RUGBYR1_even --visualize --show
+python application.py --bcap 0.1 --train --datat RUGBYR1_odd --evaluate --datae RUGBYR1_even --visualize
+python application.py --bcap 0.1 --train --datat RUGBYR1_odd --evaluate --datae RUGBYR1_even
+python application.py --train --datat RUGBYR1_odd --evaluate --datae RUGBYR1_even # minimum viable command (--bcap has default value 0.5)
+
+## evaluate downscaled PV forecast solution (--dummy) with specified BESS capacity (--bcap) and fixed presumed curtailment ratio (--c).
+## set "env_id": "dfc_gymnasium/UtilityScalePVBESS-v0-nocurtailment" in config.py to enforce strict c=0, that is the case of no PV curtailment 
+python application.py --bcap 0.5 --evaluate --dummy --c 0.1 --datae RUGBYR1_even --visualize --datetime --show
+python application.py --evaluate --dummy --c 0.1 --datae RUGBYR1_even --visualize --datetime --show
+python application.py --evaluate --dummy --c 0.1 --datae RUGBYR1_even --visualize --datetime
+python application.py --evaluate --dummy --c 0.1 --datae RUGBYR1_even --visualize --show
+python application.py --evaluate --dummy --c 0.1 --datae RUGBYR1_even # minimum viable command
+
+
+## evaluate trained model with model name (model name is the same as WandB run id.)
+python application.py --bcap 1.0 --evaluate --model hgos8qqm --datae RUGBYR1_even --visualize --show
+python application.py --evaluate --model 7s83ftb0 --datae Elia_2019 --visualize --show
+python application.py --evaluate --model 6c9rw52v --datae DeepComp2019 --visualize
+python application.py --evaluate --model 6c9rw52v --datae DeepComp2019 # minimum viable command
+
+## visualise a csv file which is the result of an evaluation run
+python application.py --visualize --datetime --csvpath 'evaluation/RUGBYR1_even/hgos8qqm_RUGBYR1_even.csv' --show
+python application.py --visualize --csvpath 'evaluation/RUGBYR1_even/hgos8qqm_RUGBYR1_even.csv'
+
+## analyze a batch of csv files resulted from evaluation runs. This functionality is now built into evaluation runs, and the result is the file named evaluation_journal*.csv
+python application.py --analyze DeepComp_evaluation_csv
+python application.py --analyze --spotlight DeepComp_evaluation_csv

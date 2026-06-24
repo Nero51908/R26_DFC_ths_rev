@@ -1,0 +1,30 @@
+# Virtual environments (keep OUT of OneDrive sync — large, many small files)
+.venv/
+venv/
+env/
+
+# Python caches / build
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Run outputs & ANDES artifacts (regenerable from CSV/scripts)
+results/
+*.npz
+*.lst
+*.out
+*_out.*
+andes.log
+*.png
+*.pdf
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+canonical_recording/
+
+# HPC deploy scripts (any slurm/ dir, e.g. Ch5_DFC_Code/slurm and ./slurm) — kept on disk
+# locally for deploying, NOT tracked / not pushed (they carry Bunya username/account/paths).
+slurm/

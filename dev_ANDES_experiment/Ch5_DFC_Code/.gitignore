@@ -1,0 +1,20 @@
+# DRL training/eval artifacts (regenerable)
+models/
+evaluation/
+# per-dataset evaluation journals written to the package root (incl. SLURM array shards)
+evaluation_journal_*.csv
+/logs/
+wandb/
+*.zip
+
+# data is large and synced separately (and lives in the ANDES pv_data/ canonically)
+data/
+
+# HPC deploy scripts (SLURM) — kept on disk locally, NOT tracked / not pushed to the public repo
+slurm/
+
+# python / OS
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/

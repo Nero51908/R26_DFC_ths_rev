@@ -1,0 +1,22 @@
+# Explicitly-imported Python packages for this project (transitive deps omitted on purpose).
+# Recreate the full env:   pip install -r requirements.txt
+#
+# The project spans two sub-environments; install only the section you need if you keep
+# them separate (the DRL training venv typically does not need ANDES).
+
+# --- shared ---
+numpy
+pandas
+plotly
+
+# --- ANDES grid experiment (src/: power flow, QSTS, MPC benchmark, analysis, viz) ---
+andes
+cvxpy            # MPC firming QP (uses the OSQP solver, which ships with cvxpy)
+matplotlib
+tqdm
+
+# --- DRL agents (Ch5_DFC_Code/: PPO training + env) ---
+gymnasium
+stable-baselines3
+torch
+wandb

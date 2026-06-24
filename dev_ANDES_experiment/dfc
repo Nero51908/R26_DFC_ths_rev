@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# dfc — convenience launcher for the DFC experiment CLI (see src/dfc_cli.py).
+#   ./dfc <command> [options]      e.g.  ./dfc by-plant --plant BANN1
+# Uses the project venv if present, else the active python3.
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="python3"
+[ -x "$DIR/.venv/bin/python" ] && PY="$DIR/.venv/bin/python"
+exec "$PY" "$DIR/src/dfc_cli.py" "$@"

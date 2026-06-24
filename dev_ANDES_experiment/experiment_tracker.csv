@@ -1,0 +1,9 @@
+dataset,actor,fixed_c,BESS_capacity,BESS_charg_lim,BESS_disch_lim,filename,mean_curtailment_ratio,mean_curtailment,deliv_frac,ramp_std_net,bess_throughput_puh,perfect_rate,rmse,mae,spotlight,fleet_balancing_mwh,interconnector_swing_mw,peak_pen,mean_pen,mean_loss_mw,vmin,vmax,n_converged,n_intervals,day,day_class
+RUGBYR1+BANN1+EDENVSF1,raw_pv,,,,,qsts_a1_2025-01-29.csv,0.0,0.0,1.0,,0.0,,,,False,2576.0,829.7,0.854,0.315,70.1,0.9921,1.0721,288,288,2025-01-29,clear
+RUGBYR1+BANN1+EDENVSF1,raw_pv,,,,,qsts_a1_2025-02-09.csv,0.0,0.0,1.0,,0.0,,,,False,3472.2,497.0,0.885,0.314,65.6,0.9918,1.0702,288,288,2025-02-09,mixed
+RUGBYR1+BANN1+EDENVSF1,rule_firming,,0.3,0.28,-0.28,qsts_a2_2025-01-29.csv,0.00013,4e-05,0.9986,0.06875,0.1755,93.38,0.0844,0.02145,False,2517.1,600.5,0.858,0.315,69.9,0.9931,1.073,288,288,2025-01-29,clear
+RUGBYR1+BANN1+EDENVSF1,rule_firming,,0.3,0.28,-0.28,qsts_a2_2025-02-09.csv,0.00095,0.00031,0.9955,0.09785,0.2665,99.25,0.01828,0.00346,False,3493.6,596.5,0.883,0.312,66.0,0.9928,1.0707,288,288,2025-02-09,mixed
+RUGBYR1+BANN1+EDENVSF1,dfc_agent,,0.3,0.28,-0.28,qsts_a3_2025-01-29.csv,0.0,0.0,0.998,0.05772,0.3611,95.51,0.05552,0.01202,False,2103.8,252.9,0.844,0.315,70.0,0.9935,1.0726,288,288,2025-01-29,clear
+RUGBYR1+BANN1+EDENVSF1,dfc_agent,,0.3,0.28,-0.28,qsts_a3_2025-02-09.csv,0.0,0.0,0.9901,0.09084,0.3718,99.63,0.01321,0.0033,False,3287.1,391.8,0.868,0.311,65.9,0.9941,1.0712,288,288,2025-02-09,mixed
+RUGBYR1+BANN1+EDENVSF1,mpc,,0.3,0.28,-0.28,qsts_a4_2025-01-29.csv,0.0025,0.00081,0.9962,0.04248,0.2908,95.51,0.04848,0.00988,False,1614.8,357.7,0.834,0.314,70.5,0.9919,1.0728,288,288,2025-01-29,clear
+RUGBYR1+BANN1+EDENVSF1,mpc,,0.3,0.28,-0.28,qsts_a4_2025-02-09.csv,0.01492,0.00481,0.9765,0.04503,0.391,99.44,0.01158,0.00195,False,1764.7,50.3,0.842,0.306,65.9,0.9908,1.0697,288,288,2025-02-09,mixed
