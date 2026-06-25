@@ -45,6 +45,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "availability": ("availability.py",        "fleet DFC firm-capacity-at-reliability + dependability"),
     "by-plant":     ("availability_by_plant.py","per-plant availability + agent-vs-MPC significance"),
     "forecast":     ("forecast_quality.py",    "per-plant POE50 forecast accuracy (RMSE/bias/skill)"),
+    "injection":    ("injection_drivers.py",   "Study A: fleet net-injection firmness drivers (a1-a4)"),
     "transmission": ("transmission_metrics.py","network value: congestion, flow variability, voltage"),
     "tracker":      ("tracker.py",             "rebuild experiment_tracker.csv from QSTS outputs"),
     # --- explore & test ----------------------------------------------------------
@@ -55,7 +56,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
 
 GROUPS: list[tuple[str, list[str]]] = [
     ("Run experiments", ["case", "pvbess", "qsts", "mpc", "rule", "export-agent", "dynamics"]),
-    ("Analyse output",  ["data", "availability", "by-plant", "forecast", "transmission", "tracker"]),
+    ("Analyse output",  ["data", "availability", "by-plant", "forecast", "injection", "transmission", "tracker"]),
     ("Explore & test",  ["viz", "explore", "test"]),
 ]
 

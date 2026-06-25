@@ -77,6 +77,7 @@ in front of each shows how to invoke it through the dispatcher.
 | `availability.py` | `availability` | **DFC-as-availability**: fleet firm-capacity-at-reliability (capacity credit) + commitment dependability per method |
 | `availability_by_plant.py` | `by-plant` | per-plant version + head-to-head significance (firm-MW day-bootstrap, paired daily dependability/shortfall, breach depth) |
 | `forecast_quality.py` | `forecast` | per-plant POE50 forecast accuracy (RMSE/MAE/bias/skill); drives A2 P_dfc quality |
+| `injection_drivers.py` | `injection` | Study A: fleet net-injection firmness drivers (peak/mean/ramp/total-variation) across a1–a4, ANDES-free |
 | `transmission_metrics.py` | `transmission` | transmission value: congestion frequency, lines stressed, flow variability, voltage band, from `qsts_net_*.npz` |
 | `tracker.py` | `tracker` | append/rebuild `experiment_tracker.csv` from the QSTS run outputs |
 | `viz.py` | `viz` | static matplotlib figures for the thesis (dispatch stack, penetration, voltage band, balancing bar, POI) |
