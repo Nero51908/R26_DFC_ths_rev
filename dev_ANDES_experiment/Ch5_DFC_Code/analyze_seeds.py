@@ -5,8 +5,9 @@ median/IQR table plus a PAIRED-by-seed contrast. Reads the run manifest (run_id 
 reward_fn, bcap) and each run's evaluation trajectory, recomputes the DFC deep-tail metrics
 with the SAME definitions used in the verification, and aggregates per reward_fn.
 
-Dependency-light (numpy + pandas only; NO torch/gymnasium), so it runs on the laptop after you
-rsync the results back from Bunya — consistent with the CLAUDE.md "runs anywhere" guardrail.
+Dependency-light (numpy + pandas; scipy OPTIONAL, only for the paired p-values; NO torch/gymnasium),
+so it runs on the laptop after you rsync the results back from Bunya — consistent with the CLAUDE.md
+"runs anywhere" guardrail.
 
 Typical use after retrieving /scratch/.../dfc_train/{models,evaluation} into this dir:
     python analyze_seeds.py --merge-shards --dataset BANN1_new --out models/seed_compare.csv
@@ -24,6 +25,14 @@ import sys
 
 import numpy as np
 import pandas as pd
+
+# scipy is OPTIONAL — it powers the paired significance tests (Wilcoxon / paired t) in the by-seed
+# contrast. The script still runs without it (the numpy/pandas-only "runs anywhere" guardrail); the
+# p-value column just shows "—" and prints a hint to `pip install scipy`.
+try:
+    from scipy.stats import ttest_rel, wilcoxon
+except ImportError:   # pragma: no cover
+    ttest_rel = wilcoxon = None
 
 # deep-tail metric set (per-unit of nameplate); shortfall = max(Pdfc - Pnet, 0).
 GEN_THRESH = 0.02   # "generating interval": available PV potential > 2% nameplate
@@ -65,6 +74,29 @@ TAIL_KEYS = ["tot_shortfall_energy", "deep_gt_005", "deep_gt_020", "max_breach_p
              "p99_shortfall_pu", "dependability_pct", "firm95_pu", "perfect_rate_092"]
 
 
+def paired_p(fk, nk, test):
+    """Two-sided paired p-value (firm vs n3) for one metric's per-seed values. Returns NaN when
+    scipy is absent, fewer than 2 usable pairs remain after dropping NaNs, or every per-seed
+    difference is zero (no signal to test). `test` is scipy's wilcoxon or ttest_rel (or None)."""
+    if test is None:
+        return float("nan")
+    mask = ~(np.isnan(fk) | np.isnan(nk))
+    a, b = fk[mask], nk[mask]
+    if len(a) < 2 or np.allclose(a - b, 0.0):
+        return float("nan")
+    try:
+        return float(test(a, b).pvalue)
+    except ValueError:           # e.g. all differences zero after wilcoxon's zero-handling
+        return float("nan")
+
+
+def fmt_p(p):
+    """Render a p-value with a significance star (* p<0.05, ** p<0.01); em-dash when undefined."""
+    if np.isnan(p):
+        return "—"
+    return f"{p:.4g}" + ("**" if p < 0.01 else "*" if p < 0.05 else "")
+
+
 def merge_shards(models_dir: str) -> str:
     """Concat models/run_manifest_*.csv shards (+ any base) into models/run_manifest.csv."""
     shards = sorted(glob.glob(os.path.join(models_dir, "run_manifest_*.csv")))
@@ -89,6 +121,8 @@ def main():
     ap.add_argument("--models-dir", default="models")
     ap.add_argument("--merge-shards", action="store_true", help="concat run_manifest_*.csv first")
     ap.add_argument("--out", default="models/seed_compare.csv")
+    ap.add_argument("--ttest", action="store_true",
+                    help="also show a paired t-test p-value column (parametric; Wilcoxon is default)")
     args = ap.parse_args()
 
     manifest = merge_shards(args.models_dir) if args.merge_shards else args.manifest
@@ -99,6 +133,23 @@ def main():
         man["reward_fn"] = "firm"   # legacy manifests predate the column; all were the firm reward
     if args.bcap is not None:
         man = man[np.isclose(man["bcap"].astype(float), args.bcap)]
+
+    # Collapse to ONE run per (reward_fn, seed). Re-running a seed (a smoke test, a local one-off, a
+    # resubmitted array) leaves several manifest rows sharing (reward_fn, seed) but with different
+    # run_ids — which makes the paired-by-seed contrast below subtract unequal-length vectors
+    # (ValueError: operands could not be broadcast ... (5,) (4,)). Keep the most RECENT run per seed
+    # (max timestamp; a rerun supersedes the old one); fall back to file order if there's no timestamp.
+    dedup_key = ["reward_fn", "seed"]
+    if "timestamp" in man.columns:
+        man = man.sort_values("timestamp")
+    dropped = man[man.duplicated(subset=dedup_key, keep="last")]
+    if len(dropped):
+        print(f"[dedupe] dropping {len(dropped)} older duplicate (reward_fn, seed) run(s); "
+              f"kept the most recent per seed:")
+        for _, d in dropped.iterrows():
+            ts = f"  {d['timestamp']}" if "timestamp" in man.columns else ""
+            print(f"    drop {d['run_id']}  reward={d['reward_fn']} seed={d['seed']}{ts}")
+    man = man.drop_duplicates(subset=dedup_key, keep="last")
 
     rows = []
     for _, r in man.iterrows():
@@ -139,8 +190,11 @@ def main():
         seeds = sorted(set(f.index) & set(n.index))
         if seeds:
             print(f"\n=== paired firm-vs-n3 by seed (n={len(seeds)} paired seeds) ===")
-            print(f"{'metric':24s}{'firm better in':>16s}{'median Δ(firm−n3)':>20s}{'median %vs n3':>16s}")
-            print("-" * 76)
+            hdr = (f"{'metric':24s}{'firm better in':>16s}{'median Δ(firm−n3)':>20s}"
+                   f"{'median %vs n3':>16s}{'wilcoxon p':>14s}")
+            if args.ttest:
+                hdr += f"{'paired-t p':>14s}"
+            print(hdr); print("-" * len(hdr))
             for k in TAIL_KEYS:
                 fk = f.loc[seeds, k].astype(float).to_numpy()
                 nk = n.loc[seeds, k].astype(float).to_numpy()
@@ -150,10 +204,23 @@ def main():
                 with np.errstate(divide="ignore", invalid="ignore"):   # n3==0 -> % undefined (use Δ col)
                     ratios = np.where(nk != 0, rel / np.abs(nk) * 100.0, np.nan)
                 pct = float(np.nanmedian(ratios)) if np.any(~np.isnan(ratios)) else float("nan")
-                print(f"{k:24s}{f'{wins}/{len(seeds)}':>16s}{np.median(d):>20.4g}{pct:>15.1f}%")
-            print("\n(firm 'better' = lower for shortfall/breach metrics, higher for "
-                  "perfect_rate/dependability/firm95. A gap that holds across most seeds is "
-                  "real; one that flips seed-to-seed is PPO noise.)")
+                row = (f"{k:24s}{f'{wins}/{len(seeds)}':>16s}{np.median(d):>20.4g}"
+                       f"{pct:>15.1f}%{fmt_p(paired_p(fk, nk, wilcoxon)):>14s}")
+                if args.ttest:
+                    row += f"{fmt_p(paired_p(fk, nk, ttest_rel)):>14s}"
+                print(row)
+            note = ("\n(firm 'better' = lower for shortfall/breach metrics, higher for "
+                    "perfect_rate/dependability/firm95. A gap that holds across most seeds is "
+                    "real; one that flips seed-to-seed is PPO noise.)")
+            if wilcoxon is None:
+                note += "\n(wilcoxon p column needs scipy: pip install scipy)"
+            else:
+                note += ("\n(p = two-sided Wilcoxon signed-rank on the per-seed firm−n3 differences; "
+                         "* p<0.05, ** p<0.01. Needs n≥6 paired seeds to even reach p<0.05.)")
+            if args.ttest:
+                note += ("\n(paired-t p assumes ~normal differences — unreliable at small n and prone "
+                         "to over-claiming; prefer the Wilcoxon column as the headline test.)")
+            print(note)
         else:
             print("\n(no shared seeds between firm and n3 — cannot pair)")
 

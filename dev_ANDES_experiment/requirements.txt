@@ -3,9 +3,18 @@
 #
 # The project spans two sub-environments; install only the section you need if you keep
 # them separate (the DRL training venv typically does not need ANDES).
+#
+# REPRODUCIBILITY: the model-determining DRL packages are pinned to the Bunya TRAINING stack,
+# read from each saved model's system_info.txt (models/<run_id>/model.zip; Ch5_DFC_Code/verify_models.py
+# prints it). Bunya trained on: Python 3.11.3 / stable-baselines3 2.9.0 / torch 2.12.1+cu130 /
+# numpy 2.4.6 / gymnasium 1.3.0 / cloudpickle 3.1.2 (cloudpickle is transitive via SB3).
+#   - Re-EVALUATING a saved model tolerates version drift (the policy is a torch state_dict) — verified
+#     to reproduce on SB3 2.5.0 to ~4e-6. Match these versions to RE-TRAIN an identical agent from a
+#     seed (PPO init / RNG shift across versions); that is done on Bunya anyway.
+#   - IO / logging / viz / stats packages are left unpinned: they do not affect a trained policy.
 
 # --- shared ---
-numpy
+numpy==2.4.6           # pinned: numpy RNG is model-determining for DRL training
 pandas
 plotly
 
@@ -15,8 +24,9 @@ cvxpy            # MPC firming QP (uses the OSQP solver, which ships with cvxpy)
 matplotlib
 tqdm
 
-# --- DRL agents (Ch5_DFC_Code/: PPO training + env) ---
-gymnasium
-stable-baselines3
-torch
+# --- DRL agents (Ch5_DFC_Code/: PPO training + env) — pinned to the Bunya training stack ---
+gymnasium==1.3.0
+stable-baselines3==2.9.0
+torch==2.12.1          # Bunya used the +cu130 CUDA wheel; pip selects the CPU wheel on macOS
 wandb
+scipy                  # optional: analyze_seeds.py paired Wilcoxon p-values (--ttest adds paired-t)
