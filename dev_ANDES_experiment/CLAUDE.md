@@ -42,13 +42,13 @@ for S in a1 a2 a3 a4; do for D in $DAYS; do
 ONCE and loops days×scenarios — much faster than 440 reloads. Keep it behind a flag.)
 
 ### Run on Bunya (recommended; parallel array)
+Get code + trajectories onto scratch via **sftp** (Bunya recommends it; no data-mover node),
+then:
 ```bash
-# sync to scratch (real layout):
-rsync -a ~/dev_py_playground/Rsrch_Thesis_rev/dev_ANDES_experiment/ \
-         /scratch/user/neroliu/R26/R26_DFC_ths_rev/dev_ANDES_experiment/
+# project already uploaded to scratch (sftp); build the venv once:
 cd /scratch/user/neroliu/R26/R26_DFC_ths_rev/dev_ANDES_experiment
 python -m venv .venv && source .venv/bin/activate && pip install andes numpy pandas
-sbatch --array=0-439%40 slurm/qsts_array.slurm      # 4 scenarios × 110 days = 440 tasks
+sbatch --array=0-9 slurm/qsts_array.slurm           # 10-task smoke (a1, first 10 days); scale up later
 squeue --me
 ```
 QSTS needs only `andes numpy pandas` (cvxpy/osqp are NOT needed — MPC trajectories already
