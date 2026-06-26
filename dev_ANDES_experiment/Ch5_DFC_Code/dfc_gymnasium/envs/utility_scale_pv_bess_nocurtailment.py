@@ -163,15 +163,20 @@ class UtilityScalePVBESSnC(gym.Env):
 
     # self.state should be filled with data now.
 
-    # check if there is not more step. True if the next Pm is zero in data record.
-    terminated = self.data[self.index+1, -1] == 0
+    # check if there is no more step. True if the next Pm is zero in the data record.
+    # Boundary guard: some plants' data ends on the final daytime interval (e.g. EDENVSF1_old is
+    # 95904 rows = 333*288, with no trailing night), so at the last interval self.index+1 is out of
+    # bounds. Treat the dataset's last interval as terminal and do not read past it (the episode is
+    # done and reset() follows on termination).
+    at_dataset_end = self.index + 1 >= len(self.data)
+    terminated = at_dataset_end or (self.data[self.index+1, -1] == 0)
 
     # update env states for observation and info
     # 1.) store the current state as previous state
     self.previous_state = copy.deepcopy(self.state)
 
-    # 2.) increment the index for reading data
-    self.index += 1
+    # 2.) increment the index for reading data (clamped at the dataset boundary)
+    self.index = self.index if at_dataset_end else self.index + 1
     t, Pf, Pm = self.data[self.index,:]
     
     # 3.) fill what is known about the new state. 

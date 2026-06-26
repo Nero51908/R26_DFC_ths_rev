@@ -28,3 +28,6 @@ canonical_recording/
 # HPC deploy scripts (any slurm/ dir, e.g. Ch5_DFC_Code/slurm and ./slurm) — kept on disk
 # locally for deploying, NOT tracked / not pushed (they carry Bunya username/account/paths).
 slurm/
+
+# Data
+data/
