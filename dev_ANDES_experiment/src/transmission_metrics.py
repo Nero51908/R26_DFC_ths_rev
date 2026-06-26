@@ -60,9 +60,9 @@ def main(argv=None) -> int:
     ap.add_argument("--vhi", type=float, default=1.05)
     args = ap.parse_args(argv)
 
-    files = sorted(C.RESULTS.glob("qsts_net_*.npz"))
+    files = sorted((C.RESULTS / "qsts").rglob("qsts_net_*.npz"))
     if not files:
-        print("No qsts_net_*.npz found. Run study_a_qsts.py (records network observables).")
+        print(f"No qsts_net_*.npz under {C.RESULTS / 'qsts'}/. Run study_a_qsts.py (records network observables).")
         return 1
     rows = []
     for f in files:

@@ -41,6 +41,7 @@ def record_run(run_id: str, dataset: str, bess_properties: dict, seed: int):
     "env_id": config.sb3_config["env_id"], "total_steps": config.sb3_config["total_steps"],
     "policy": config.sb3_config["policy_type"],
     "reward_fn": getattr(config, "reward_fn", "firm"),
+    "k_curtail": getattr(config, "reward_params", {}).get("k_curtail", 0.0),
     "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
   }
   fieldnames = list(row)
@@ -49,6 +50,7 @@ def record_run(run_id: str, dataset: str, bess_properties: dict, seed: int):
     with open(manifest, newline="") as f:
       for r in csv.DictReader(f):
         r.setdefault("reward_fn", "firm")   # backfill: every run predating this column used the firm reward
+        r.setdefault("k_curtail", "")        # backfill: runs predating the curtailment penalty had none
         rows.append(r)
   rows.append(row)
   with open(manifest, "w", newline="") as f:

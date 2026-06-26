@@ -111,6 +111,10 @@ reward_params = {
   "atol":      0.02,   # commitment "met" if shortfall <= 2% of nameplate (abs, grid-consistent)
   "k_short":   15.0,   # convex shortfall weight (tail-risk pressure)
   "k_surplus": 0.5,    # light over-delivery nudge to keep net tracking the commitment
+  # linear curtailment penalty (mirrors the old n3 reward's -actual_c): punishes massive curtailment
+  # / daytime zeroing so the agent predicts the MAX available net power, not a safe-low commitment.
+  # SWEPT via DFC_K_CURTAIL; raise toward ~1.0 (n3's weight) if zeroing persists (worst on RUGBYR1/EDENVSF1).
+  "k_curtail": float(os.environ.get("DFC_K_CURTAIL", "0.3")),
 }
 
 # Which per-step reward the envs use during TRAINING. Default "firm" = the redesigned

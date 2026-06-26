@@ -24,7 +24,7 @@ with the ANDES-free analysis done in Cowork.
 - Trajectories present for all 3 plants × {rule, agent, mpc}; the day sets ALIGN — **110
   common days** in period p2, runnable for a1–a4 (0 days missing for any scenario).
 - `study_a_qsts.py` runs ONE `(scenario, day)` per invocation and writes
-  `results/qsts_net_<scen>_<date>.npz` (+ `qsts_<scen>_<date>.csv`). a1 = raw PV (no
+  `results/qsts/<scen>/qsts_net_<scen>_<date>.npz` (+ `qsts_<scen>_<date>.csv`). a1 = raw PV (no
   trajectory); a2/a3/a4 read `results/trajectories/<rule|agent|mpc>_*.csv`.
 - ⚠️ Mixed agent vintage: BANN1 & RUGBYR1 agents are Ch.5 settings, **EDENVSF1 is still
   Ch.4**. Fine for a prototype; refresh once new EDENVSF1 (and RUGBYR1) agents arrive.
@@ -45,9 +45,11 @@ ONCE and loops days×scenarios — much faster than 440 reloads. Keep it behind 
 Get code + trajectories onto scratch via **sftp** (Bunya recommends it; no data-mover node),
 then:
 ```bash
-# project already uploaded to scratch (sftp); build the venv once:
-cd /scratch/user/neroliu/R26/R26_DFC_ths_rev/dev_ANDES_experiment
+# project already uploaded to scratch (sftp); build the venv ONCE at R26/.venv — the slurm scripts
+# source $PROJ/.venv with PROJ=/scratch/user/neroliu/R26, so the venv lives THERE, not inside the repo:
+cd /scratch/user/neroliu/R26
 python -m venv .venv && source .venv/bin/activate && pip install andes numpy pandas
+cd R26_DFC_ths_rev/dev_ANDES_experiment
 sbatch --array=0-439%10 slurm/qsts_array.slurm      # full run: 4 scenarios × 110 days = 440 tasks, max 10 at once
 squeue --me
 ```
@@ -59,7 +61,7 @@ Bunya recommends **sftp**; reuse the established pattern (feed commands on STDIN
 so DUO MFA still prompts; login node; MFA once). Template: `Ch5_DFC_Code/slurm/fetch_results_sftp.sh`.
 ANDES twin:
 ```bash
-BUNYA_USER=neroliu ./slurm/fetch_qsts_sftp.sh       # pulls results/qsts_net_*.npz + qsts_*.csv
+BUNYA_USER=neroliu ./slurm/fetch_qsts_sftp.sh       # pulls the results/qsts/<scenario>/ tree
 ./dfc transmission                                  # build the network metrics table
 ```
 

@@ -21,13 +21,15 @@ de-duped by run_id (the `actor` column). It is the journal twin of `analyze_seed
     python merge_journals.py --keep-shards      # KEEP the per-task shards (default: delete them post-merge)
     python merge_journals.py --no-manifest      # skip the reward_fn/seed enrichment
     python merge_journals.py --latest-per-seed  # ALSO write *_model_latest.csv (1 run/seed; full log kept)
+    python merge_journals.py --shard-dir journals  # shards live in ./journals; canonical + manifest stay in .
 
 Notes:
   * `model` and `dummy` stay SEPARATE — the dummy is the naive POE50 baseline, not an agent.
   * Only files WITH a <jobid>_<task> tag are treated as shards; the canonical base and any untagged
     local journals are read in (so their rows are preserved) but never globbed as shards.
-  * The journal has no reward_fn/seed; if models/run_manifest.csv is present, the merged MODEL
-    journal is left-joined with reward_fn + seed on run_id so every row says which arm it came from.
+  * The journal has no reward_fn/seed; those are joined on run_id from the run manifest. Enrichment
+    reads BOTH the canonical models/run_manifest.csv AND every run_manifest_*.csv shard, so it works
+    even before the manifest is reduced (analyze_seeds --merge-shards) — no ordering dependency.
   * Default output is the COMPLETE log (every run, de-duped only by run_id). --latest-per-seed
     ADDITIONALLY writes evaluation_journal_<dataset>_model_latest.csv with just the most recent run
     per (reward_fn, seed) — same rule as analyze_seeds.py — leaving the full log untouched.
@@ -59,10 +61,34 @@ def _finalize(df):
     return df.sort_values(sort_cols, kind="stable").reset_index(drop=True) if sort_cols else df
 
 
+def load_manifest(base_dir, manifest_rel):
+    """Run metadata (reward_fn/seed) for enrichment: the canonical run_manifest.csv PLUS every
+    per-task run_manifest_*.csv shard, de-duped by run_id (newest wins). Reading the shards makes
+    enrichment independent of whether the manifest was reduced first (analyze_seeds --merge-shards),
+    so freshly-fetched journals get their seeds even before the manifest is merged. Returns None if
+    no manifest data is found at all."""
+    base = manifest_rel if os.path.isabs(manifest_rel) else os.path.join(base_dir, manifest_rel)
+    models_dir = os.path.dirname(base) or "."
+    frames = [pd.read_csv(p) for p in sorted(glob.glob(os.path.join(models_dir, "run_manifest_*.csv")))
+              if os.path.getsize(p) > 0]                        # the per-task shards
+    if os.path.isfile(base) and os.path.getsize(base) > 0:
+        frames.append(pd.read_csv(base))                       # the canonical (reduced) manifest
+    if not frames:
+        return None
+    man = pd.concat(frames, ignore_index=True)
+    if "timestamp" in man.columns:
+        man = man.sort_values("timestamp")
+    return man.drop_duplicates("run_id", keep="last")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", default=".", help="dir holding the journal CSVs (the checkout root)")
+    ap.add_argument("--shard-dir", default=None,
+                    help="dir holding the per-task journal shards (default: --dir). Use when the "
+                         "evaluation_journal_*_<job>_<task>.csv shards are collected in their own folder; "
+                         "the canonical merged journal + manifest still resolve under --dir.")
     ap.add_argument("--manifest", default="models/run_manifest.csv",
                     help="run manifest used to enrich model journals with reward_fn/seed")
     ap.add_argument("--no-manifest", action="store_true",
@@ -77,8 +103,11 @@ def main():
     args = ap.parse_args()
 
     # 1. discover shards, grouped by (dataset, kind); skip the canonical base + untagged journals.
+    #    Shards may sit in their own folder (--shard-dir) while the canonical journal + manifest
+    #    stay under --dir.
+    shard_dir = args.shard_dir or args.dir
     groups: dict[tuple[str, str], list[str]] = {}
-    for path in sorted(glob.glob(os.path.join(args.dir, "evaluation_journal_*.csv"))):
+    for path in sorted(glob.glob(os.path.join(shard_dir, "evaluation_journal_*.csv"))):
         m = SHARD_RE.match(os.path.basename(path))
         if m:
             groups.setdefault((m["dataset"], m["kind"]), []).append(path)
@@ -87,12 +116,10 @@ def main():
                  f"in {os.path.abspath(args.dir)} — already merged & cleaned (shards are deleted by "
                  "default), or not fetched yet (WANT_JOURNALS=1)?")
 
-    # 2. load the manifest once (for the reward_fn/seed enrichment of model journals).
-    man = None
-    if not args.no_manifest:
-        mpath = args.manifest if os.path.isabs(args.manifest) else os.path.join(args.dir, args.manifest)
-        if os.path.isfile(mpath) and os.path.getsize(mpath) > 0:
-            man = pd.read_csv(mpath)
+    # 2. load run metadata (reward_fn/seed) for enriching MODEL journals — from the canonical
+    #    run_manifest.csv AND every run_manifest_*.csv shard, so enrichment does NOT depend on the
+    #    manifest having been reduced first (that ordering gap is what left fetched journals empty).
+    man = None if args.no_manifest else load_manifest(args.dir, args.manifest)
 
     # 3. merge each (dataset, kind) group into its canonical file.
     for (dataset, kind), shards in sorted(groups.items()):

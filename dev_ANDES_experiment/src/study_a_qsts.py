@@ -175,8 +175,8 @@ def run_day(ss, inj_mw: np.ndarray, real_load_mw: float, record_net: bool = True
 
 def summarize(rows, date, real_load_mw: float, scenario: str = "a1") -> None:
     import csv
-    out = C.RESULTS / f"qsts_{scenario}_{date.date()}.csv"
-    out.parent.mkdir(exist_ok=True)
+    out = C.RESULTS / "qsts" / scenario / f"qsts_{scenario}_{date.date()}.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
@@ -240,7 +240,8 @@ def main(argv=None) -> int:
     rows, net = run_day(ss, inj, real_load, record_net=not args.no_record_net)
     summarize(rows, day, real_load, args.scenario)
     if net is not None:
-        netout = C.RESULTS / f"qsts_net_{args.scenario}_{day.date()}.npz"
+        netout = C.RESULTS / "qsts" / args.scenario / f"qsts_net_{args.scenario}_{day.date()}.npz"
+        netout.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(netout, **net)
         print(f"  network observables : {netout.name} "
               f"(lines {net['loadpct'].shape[1]}, buses {net['vmag'].shape[1]})")

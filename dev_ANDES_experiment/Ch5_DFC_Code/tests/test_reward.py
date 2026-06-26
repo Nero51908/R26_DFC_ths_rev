@@ -9,7 +9,8 @@ Verifies the design properties that motivated the redesign:
   3. surplus (over-delivery) is nearly free vs an equal-size shortfall;
   4. the "met" band is the ABSOLUTE tolerance atol;
   5. the honour bonus scales down with spilled PV (actual_c);
-  6. config.reward_params carries the expected knobs.
+  6. config.reward_params carries the expected knobs;
+  7. the curtailment penalty (k_curtail) punishes spilled PV / daytime zeroing (off by default).
 
     python tests/test_reward.py        # exit 0 = all pass
 """
@@ -62,8 +63,8 @@ ok("5b bonus = 1 - actual_c when met", abs(hlp.dfc_reward(0.50, 0.50, 0.2, **P) 
 # 6. config wiring
 try:
     import config
-    ok("6 config.reward_params has atol/k_short/k_surplus",
-       set(config.reward_params) == {"atol", "k_short", "k_surplus"})
+    ok("6 config.reward_params has atol/k_short/k_surplus/k_curtail",
+       set(config.reward_params) == {"atol", "k_short", "k_surplus", "k_curtail"})
     ok("6b config env_id is the curtailment variant",
        config.sb3_config["env_id"] == "dfc_gymnasium/UtilityScalePVBESS-v0")
 except Exception as e:                       # config import shouldn't need torch now
@@ -80,6 +81,19 @@ ok("7d n3 honour beats deep breach", hlp.dfc_reward_n3(0.50, 0.50, 0.0) > hlp.df
 ok("7e firm reward is ASYMMETRIC where n3 is not (surplus >> shortfall only under firm)",
    (hlp.dfc_reward(0.70, 0.50, 0.0, **P) > hlp.dfc_reward(0.30, 0.50, 0.0, **P)) and
    abs(hlp.dfc_reward_n3(0.70, 0.50, 0.0) - hlp.dfc_reward_n3(0.30, 0.50, 0.0)) < 1e-9)
+
+# 8. curtailment penalty (k_curtail): committing 0 / curtailing 100% is NO LONGER free, restoring
+#    n3's anti-zeroing pressure while keeping firm's asymmetric shortfall. Off by default (k_curtail=0).
+ok("8 default k_curtail=0 -> full curtail reward-neutral (firm reward unchanged)",
+   abs(hlp.dfc_reward(0.0, 0.0, 1.0, **P) - 0.0) < 1e-9)
+ok("8b k_curtail>0 penalises full daytime zeroing (commit 0, curtail 100%)",
+   hlp.dfc_reward(0.0, 0.0, 1.0, **P, k_curtail=0.3) < 0.0 and
+   abs(hlp.dfc_reward(0.0, 0.0, 1.0, **P, k_curtail=0.3) - (-0.3)) < 1e-9)
+ok("8c curtailment penalty monotone (more spill -> lower reward)",
+   hlp.dfc_reward(0.50, 0.50, 0.1, **P, k_curtail=0.3) >
+   hlp.dfc_reward(0.50, 0.50, 0.5, **P, k_curtail=0.3))
+ok("8d penalty leaves met-bonus structure intact (met, c=0.2, k=0.5 -> 0.7)",
+   abs(hlp.dfc_reward(0.50, 0.50, 0.2, **P, k_curtail=0.5) - 0.7) < 1e-9)
 
 n_fail = sum(1 for _, c in checks if not c)
 print(f"\nSUMMARY: {len(checks) - n_fail} pass, {n_fail} fail")

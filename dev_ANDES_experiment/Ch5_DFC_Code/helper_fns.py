@@ -109,7 +109,7 @@ def mape_loss_np(input:np.ndarray, target:np.ndarray):
   return mape
 
 #==================== DFC firm-capacity reward ====================#
-def dfc_reward(Pnet, Pdfc, actual_c, *, atol=0.02, k_short=15.0, k_surplus=0.5):
+def dfc_reward(Pnet, Pdfc, actual_c, *, atol=0.02, k_short=15.0, k_surplus=0.5, k_curtail=0.0):
   """Per-step reward for the DFC firm-capacity task (single source of truth for every env).
 
   Treats the firm commitment P_dfc as a floor the plant should honour:
@@ -118,7 +118,11 @@ def dfc_reward(Pnet, Pdfc, actual_c, *, atol=0.02, k_short=15.0, k_surplus=0.5):
     - SURPLUS (Pnet > Pdfc) is benign (the grid simply gets more) -> light linear nudge
       that keeps the net output tracking the commitment without punishing over-delivery;
     - honouring the commitment (shortfall <= atol, an ABSOLUTE tolerance consistent with
-      the availability metric) earns +1, scaled down by spilled PV (actual_c).
+      the availability metric) earns +1, scaled down by spilled PV (actual_c);
+    - CURTAILMENT (spilled PV) carries a linear penalty (k_curtail * actual_c), so committing 0 /
+      curtailing 100% is no longer reward-neutral — the agent must predict the MAX available net
+      power. Restores the anti-zeroing pressure of the old n3 reward's -actual_c (off by default;
+      set via config.reward_params / DFC_K_CURTAIL).
 
   All quantities are per-unit of plant nameplate. Replaces the old symmetric "reward fn n3"
   (relative-tolerance close-bonus minus |Pnet-Pdfc|), which penalised over- and under-
@@ -133,7 +137,8 @@ def dfc_reward(Pnet, Pdfc, actual_c, *, atol=0.02, k_short=15.0, k_surplus=0.5):
   met = shortfall <= atol
   return float(met * (1.0 - actual_c)
                - k_short * shortfall**2
-               - k_surplus * surplus)
+               - k_surplus * surplus
+               - k_curtail * float(actual_c))
 
 
 def dfc_reward_n3(Pnet, Pdfc, actual_c):
