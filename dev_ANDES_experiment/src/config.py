@@ -5,6 +5,7 @@ All design decisions agreed during planning live here so the study scripts share
 single source of truth. See ../dev_PSSE_experiment/experiment_design.md (OneDrive tree)
 for the rationale behind each value.
 """
+import os
 from pathlib import Path
 
 # ---------------------------------------------------------------- paths
@@ -29,6 +30,14 @@ PVBESS_CASE = CASES / "ieee39_pvbess.xlsx"               # high-penetration Conf
 
 # ---------------------------------------------------------------- system
 SBASE_MVA  = 100.0
+# Transmission reinforcement factor on the (legacy) IEEE39 line MVA ratings. The bundled IEEE39 was
+# rated for its original ~6 GW load, NOT a ~5.9 GW PV-BESS overlay — at x1.0 the worst line hits ~243%
+# (STRUCTURAL congestion that saturates every scenario and masks the dispatch effect). x3.0 reinforces
+# the network enough to host the fleet (worst line <80%), so Study A shows OPERATION, not a capacity
+# shortfall. Applied in transmission_metrics (the .npz keep physical legacy-rating loadings); override
+# with DFC_RATE_SCALE (=1.0 recovers the legacy view as a deliberate foil). NOTE: congestion is not what
+# DFC targets — this just removes a structural artefact so the dispatch comparison is meaningful.
+LINE_RATE_SCALE = float(os.environ.get("DFC_RATE_SCALE", "3.0"))
 # Use the benchmark's NATIVE 60 Hz throughout (decided). Study A power flow is
 # frequency-agnostic; Study B reports base-independent Δf/RoCoF. A 50 Hz relabel is an
 # opt-in (attach_dynamics --rebase 50) only for NEM-standard frequency plots.
@@ -63,17 +72,40 @@ PLANT_PROFILES = {
 }
 
 # ---------------------------------------------------------------- BESS anchor case
-# Anchor for the DFC export (scenario A3) and the centre of the Study C sweep.
-BESS_ENERGY_PU   = 0.30    # energy capacity relative to PV peak power (pu*h)
-BESS_ERATE       = 0.28    # charge/discharge power limit (E-rate)
+# Anchor for the DFC export (scenario A3) and the centre of the BESS sizing sweep. Both knobs are
+# env-overridable so the sweep can be driven without editing config (see case_tag() below).
+# Thesis notation: E_cap (energy capacity, pu*h) and E-rate (power rating, P_c,max = P_d,max).
+BESS_ENERGY_PU   = float(os.environ.get("DFC_BCAP",  "0.30"))  # E_cap: energy capacity (pu*h)
+BESS_ERATE       = float(os.environ.get("DFC_ERATE", "0.28"))  # E-rate: charge/discharge power limit
 BESS_ETA_CHG     = 0.90
 BESS_ETA_DIS     = 0.90
 SOC_MIN_PCT      = 10.0
 SOC_MAX_PCT      = 90.0
 
-# Study C sweep grid (centred on the anchor)
-SWEEP_BESS_ENERGY_PU   = [0.15, 0.30, 0.50, 1.00]   # 0.30 = anchor
+# BESS sizing sweep — aligned to thesis Ch.3: E_cap {0.05,0.1,0.2,0.5,1.0}; E-rate {0.28 (avg 2023
+# fleet), 0.67 (Victorian Big Battery, 300 MW / 450 MWh)}. (0.30 anchor sits between 0.20 and 0.50.)
+SWEEP_BESS_ENERGY_PU   = [0.05, 0.10, 0.20, 0.50, 1.00]
+SWEEP_BESS_ERATE       = [0.28, 0.67]
 SWEEP_CURTAILMENT_FRAC = [0.0, 0.05, 0.10, 0.20]
+
+
+# Per-case output namespacing for the sizing sweep. The ANCHOR (0.30 / 0.28) keeps the legacy FLAT
+# layout (results/trajectories/, results/qsts/) so existing results are untouched; every other
+# (bcap, erate) writes under a per-case subfolder "b<bcap>_e<erate>". The study scripts call these.
+def case_tag(bcap: float = None, erate: float = None) -> str:
+    b = BESS_ENERGY_PU if bcap is None else bcap
+    e = BESS_ERATE if erate is None else erate
+    return "" if (abs(b - 0.30) < 1e-9 and abs(e - 0.28) < 1e-9) else f"b{b:g}_e{e:g}"
+
+
+def traj_dir(bcap: float = None, erate: float = None) -> Path:
+    t = case_tag(bcap, erate)
+    return RESULTS / "trajectories" / t if t else RESULTS / "trajectories"
+
+
+def qsts_dir(bcap: float = None, erate: float = None) -> Path:
+    t = case_tag(bcap, erate)
+    return RESULTS / "qsts" / t if t else RESULTS / "qsts"
 
 # ---------------------------------------------------------------- synchronous dispatch
 # QSTS re-dispatch mimics AEMO's 5-min central dispatch: PV (zero marginal cost,

@@ -146,12 +146,15 @@ def main(argv=None) -> int:
                     help="every complete period day (full availability comparison; ~25-50 min)")
     ap.add_argument("--horizon", type=int, default=24, help="MPC horizon in 5-min steps")
     ap.add_argument("--mode", choices=["persistence", "forecast", "oracle"], default="forecast")
-    ap.add_argument("--bcap", type=float, default=None, help="override BESS energy (pu*h)")
+    ap.add_argument("--bcap", type=float, default=None, help="override BESS energy E_cap (pu*h)")
+    ap.add_argument("--erate", type=float, default=None, help="override BESS power limit (E-rate)")
     ap.add_argument("--prefix", default="mpc")
     ap.add_argument("--period", choices=["p1", "p2"], default=C.DEFAULT_PERIOD)
     args = ap.parse_args(argv)
     if args.bcap is not None:
         C.BESS_ENERGY_PU = args.bcap
+    if args.erate is not None:
+        C.BESS_ERATE = args.erate
 
     plants = P.load_all(args.period)
     common = P.common_complete_days(plants)
@@ -166,11 +169,11 @@ def main(argv=None) -> int:
         sel = tbl[tbl["klass"] == args.klass]
         day_list = [pd.Timestamp(sel.iloc[len(sel) // 2]["date"])]
 
-    out_dir = C.RESULTS / "trajectories"
+    out_dir = C.traj_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     multi = len(day_list) > 1
     print(f"MPC A4  {len(day_list)} day(s)  mode={args.mode}  horizon={args.horizon}  "
-          f"bcap={C.BESS_ENERGY_PU}")
+          f"bcap={C.BESS_ENERGY_PU} erate={C.BESS_ERATE}  -> {out_dir}")
     per_plant = {name: [] for name in C.PROFILES}
     bar = None
     if multi:                                        # progress bar over days (low overhead)

@@ -62,7 +62,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="A2 rule-based firming baseline.")
     ap.add_argument("--period", choices=["p1", "p2"], default=C.DEFAULT_PERIOD)
     args = ap.parse_args(argv)
-    out_dir = C.RESULTS / "trajectories"
+    out_dir = C.traj_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, df in P.load_all(args.period).items():
         traj = firm_profile(df)

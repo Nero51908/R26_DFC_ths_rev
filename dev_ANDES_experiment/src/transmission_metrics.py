@@ -36,10 +36,11 @@ ACTOR = {"a1": "raw_pv", "a2": "forecast-DFC", "a3": "DRL_agent", "a4": "MPC"}
 
 def scen_metrics(npz_path: Path, load_thresh: float, vlo: float, vhi: float) -> dict:
     d = np.load(npz_path, allow_pickle=True)
-    pct = d["loadpct"].astype(float)             # (T, L) %, may contain nan (unrated lines)
+    s = C.LINE_RATE_SCALE                         # reinforce legacy IEEE39 ratings (config; DFC_RATE_SCALE)
+    pct = d["loadpct"].astype(float) / s         # (T, L) % of REINFORCED rating (nan where unrated)
     vmag = d["vmag"].astype(float)               # (T, B)
-    rate = d["rate"].astype(float)
-    mva = pct / 100.0 * rate                     # back to MVA for variability
+    rate = d["rate"].astype(float) * s
+    mva = pct / 100.0 * rate                     # physical MVA (scale cancels) for flow variability
     over = np.nan_to_num(pct, nan=0.0) > load_thresh
     return {
         "peak_load_%": round(float(np.nanmax(pct)), 1),
@@ -60,9 +61,9 @@ def main(argv=None) -> int:
     ap.add_argument("--vhi", type=float, default=1.05)
     args = ap.parse_args(argv)
 
-    files = sorted((C.RESULTS / "qsts").rglob("qsts_net_*.npz"))
+    files = sorted(C.qsts_dir().rglob("qsts_net_*.npz"))
     if not files:
-        print(f"No qsts_net_*.npz under {C.RESULTS / 'qsts'}/. Run study_a_qsts.py (records network observables).")
+        print(f"No qsts_net_*.npz under {C.qsts_dir()}/. Run study_a_qsts.py (records network observables).")
         return 1
     rows = []
     for f in files:

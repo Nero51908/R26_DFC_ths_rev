@@ -54,7 +54,7 @@ def _load(plant: str, prefix: str, period: str | None) -> dict[str, pd.DataFrame
         df = P.load_plant(plant, period).reset_index().rename(columns={"DATETIME": "datetime"})
         df = df.assign(net=df["scada"], commit=df["forecast"], avail=df["scada"])
     else:
-        df = pd.read_csv(C.RESULTS / "trajectories" / f"{prefix}_{plant}.csv")
+        df = pd.read_csv(C.traj_dir() / f"{prefix}_{plant}.csv")
         df = df.rename(columns={"P_net": "net", "P_dfc": "commit", "P_actual": "avail"})
         df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
     df["_d"] = df["datetime"].dt.date

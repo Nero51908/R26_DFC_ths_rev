@@ -23,6 +23,30 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config as C
 
+_RAW_RATE_CACHE: dict = {}
+
+
+def _rate_from_raw(ss):
+    """ANDES' bundled ieee39 ships with Line.rate_a = 0, so %loading is undefined (all-NaN). Pull the
+    real per-line MVA ratings from the PSS/E reference (config.BASE_RAW), matched by UNORDERED bus pair
+    (IEEE39 has no parallels, so the pair is unique). Cached per line-set so the .raw loads once."""
+    key = tuple((int(a), int(b)) for a, b in zip(ss.Line.bus1.v, ss.Line.bus2.v))
+    if key in _RAW_RATE_CACHE:
+        return _RAW_RATE_CACHE[key]
+    from collections import defaultdict, deque
+    try:
+        import andes
+        raw = andes.load(str(C.BASE_RAW), setup=True, no_output=True)
+    except Exception:
+        _RAW_RATE_CACHE[key] = None
+        return None
+    pool = defaultdict(deque)
+    for b1, b2, ra in zip(raw.Line.bus1.v, raw.Line.bus2.v, np.asarray(raw.Line.rate_a.v, float)):
+        pool[frozenset((int(b1), int(b2)))].append(float(ra))
+    out = np.array([(pool[frozenset(p)].popleft() if pool[frozenset(p)] else 0.0) for p in key], float)
+    _RAW_RATE_CACHE[key] = out
+    return out
+
 
 def line_meta(ss):
     """Static per-line metadata (computed once): from/to bus, rating, and a precomputed
@@ -37,6 +61,10 @@ def line_meta(ss):
     tap = np.asarray(getattr(ss.Line, "tap").v, float) if hasattr(ss.Line, "tap") else np.ones(len(f))
     phi = np.asarray(getattr(ss.Line, "phi").v, float) if hasattr(ss.Line, "phi") else np.zeros(len(f))
     rate = np.asarray(ss.Line.rate_a.v, float)
+    if (rate <= 0).all():                        # ANDES ieee39 ships UNRATED -> %loading would be all
+        r2 = _rate_from_raw(ss)                   # NaN; inject real MVA ratings from the PSS/E reference
+        if r2 is not None and (r2 > 0).any():     # (config.BASE_RAW), matched by bus pair.
+            rate = r2
     ys = 1.0 / (r + 1j * x)
     T = tap * np.exp(1j * phi)
     return dict(f=f, t=t, ys=ys, bsh=bsh, T=T, rate=rate,

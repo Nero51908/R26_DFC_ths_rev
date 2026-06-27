@@ -37,7 +37,7 @@ def record_run(run_id: str, dataset: str, bess_properties: dict, seed: int):
   os.makedirs(config.dir_names["training_output"], exist_ok=True)
   row = {
     "run_id": run_id, "dataset": dataset,
-    "bcap": bess_properties["energy_capacity_puh"], "seed": seed,
+    "bcap": bess_properties["energy_capacity_puh"], "erate": bess_properties["power_boundary_Erate"].limsup, "seed": seed,
     "env_id": config.sb3_config["env_id"], "total_steps": config.sb3_config["total_steps"],
     "policy": config.sb3_config["policy_type"],
     "reward_fn": getattr(config, "reward_fn", "firm"),
@@ -51,6 +51,7 @@ def record_run(run_id: str, dataset: str, bess_properties: dict, seed: int):
       for r in csv.DictReader(f):
         r.setdefault("reward_fn", "firm")   # backfill: every run predating this column used the firm reward
         r.setdefault("k_curtail", "")        # backfill: runs predating the curtailment penalty had none
+        r.setdefault("erate", "")            # backfill: runs predating the E-rate sweep
         rows.append(r)
   rows.append(row)
   with open(manifest, "w", newline="") as f:
@@ -287,6 +288,7 @@ def analyze(dirname: str, spotlight: bool = False):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="CLI of pv-bess-dfc")
   parser.add_argument("--bcap",     type=float, default=None, help="BESS capacity in pu relative to PV peak power")
+  parser.add_argument("--erate",    type=float, default=None, help="BESS power limit (E-rate, hr^-1; thesis 0.28 / 0.67)")
   parser.add_argument("--dummy",    action="store_true", help="Run evaluate_dummy_c() instead of training")
   parser.add_argument("--c",        type=float, default=0.1, help="(0,1) float that means curtailment ratio")
   parser.add_argument("--train",    action="store_true", help="Run training script")
@@ -311,6 +313,9 @@ if __name__ == "__main__":
     bess_properties["energy_capacity_puh"] = args.bcap
   else:
     pass
+  if args.erate != None:                     # override BESS power limit (E-rate); env reads power_boundary_Erate
+    bess_properties["power_boundary_Erate"] = bess_properties["power_boundary_Erate"]._replace(
+        limsup=args.erate, liminf=-args.erate)
 
   if args.train:
     # train

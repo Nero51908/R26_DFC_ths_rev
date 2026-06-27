@@ -175,7 +175,7 @@ def run_day(ss, inj_mw: np.ndarray, real_load_mw: float, record_net: bool = True
 
 def summarize(rows, date, real_load_mw: float, scenario: str = "a1") -> None:
     import csv
-    out = C.RESULTS / "qsts" / scenario / f"qsts_{scenario}_{date.date()}.csv"
+    out = C.qsts_dir() / scenario / f"qsts_{scenario}_{date.date()}.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -202,7 +202,7 @@ def main(argv=None) -> int:
                     help="a1=raw PV injection; a2/a3/a4=firm trajectory (rule/DRL/MPC)")
     ap.add_argument("--klass", choices=["clear", "mixed", "overcast"], default="clear")
     ap.add_argument("--date", default=None, help="explicit YYYY-MM-DD (overrides --klass)")
-    ap.add_argument("--traj-dir", type=Path, default=C.RESULTS / "trajectories",
+    ap.add_argument("--traj-dir", type=Path, default=C.traj_dir(),
                     help="dir of canonical trajectory CSVs for a2/a3/a4")
     ap.add_argument("--traj-prefix", default=None,
                     help="trajectory filename prefix (default: rule/agent/mpc for a2/a3/a4)")
@@ -240,7 +240,7 @@ def main(argv=None) -> int:
     rows, net = run_day(ss, inj, real_load, record_net=not args.no_record_net)
     summarize(rows, day, real_load, args.scenario)
     if net is not None:
-        netout = C.RESULTS / "qsts" / args.scenario / f"qsts_net_{args.scenario}_{day.date()}.npz"
+        netout = C.qsts_dir() / args.scenario / f"qsts_net_{args.scenario}_{day.date()}.npz"
         netout.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(netout, **net)
         print(f"  network observables : {netout.name} "
